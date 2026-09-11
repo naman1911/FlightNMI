@@ -117,15 +117,15 @@ const NMI = {lat:18.99194, lon:73.06167};   // Navi Mumbai Intl (NMI / VANM)
 const BOM = {lat:19.0887,  lon:72.8679};    // CSMIA, to tell the two airports apart
 const RWY = 80;                             // runway 08/26, approx true heading of 08
 const RADIUS_NM = 180, POLL_MS = 15000;
-const RELAY = "https://nmi-relay.nityaamanbhagat.workers.dev";   // your Cloudflare relay, used as a last resort
-const SOURCES = [   // tried in order from the phone itself; the one that works is remembered
+const IS_APP = !!window.Capacitor;   // true inside the Android app, where flight APIs can be reached directly
+const APK_URL = "https://github.com/naman1911/FlightNMI/releases/latest/download/NMI-Arrivals.apk";
+const SOURCES = [   // tried in order; the one that works is remembered
   {name:"adsb.lol",       url:`https://api.adsb.lol/v2/point/${NMI.lat}/${NMI.lon}/${RADIUS_NM}`},
   {name:"airplanes.live", url:`https://api.airplanes.live/v2/point/${NMI.lat}/${NMI.lon}/${RADIUS_NM}`},
   {name:"OpenSky",        url:"https://opensky-network.org/api/states/all?lamin=16.5&lomin=70.5&lamax=21.5&lomax=75.5",
-   opensky:true, pollMs:30000},   // free anonymous quota is limited, so poll it less often
-  {name:"relay",          url:RELAY + "/positions", relay:true}
+   opensky:true, pollMs:30000}    // free anonymous quota is limited, so poll it less often
 ];
-const ROUTE_URLS = ["https://api.adsb.lol/api/0/routeset", RELAY + "/routes"];
+const ROUTE_URL = "https://api.adsb.lol/api/0/routeset";
 
 const AIRLINES = { // ICAO prefix: [IATA, name, colour]
   IGO:["6E","IndiGo","#4C7BE8"], AKJ:["QP","Akasa Air","#F08A3C"], AXB:["IX","Air India Express","#E0605A"],
@@ -151,7 +151,7 @@ const AIRPORTS = { // ICAO: [IATA, city]
 };
 
 /* ---------- State ---------- */
-const S = {view:"side", src:0, srcName:"", diag:{}, routeSrc:0, lastOk:0, error:false, busy:false, inbound:[], sel:null,
+const S = {view:"side", src:0, srcName:"", diag:{}, lastOk:0, error:false, busy:false, inbound:[], sel:null,
            routes:new Map(), routesPausedUntil:0, watch:new Map(), landed:[],
            reduce:matchMedia("(prefers-reduced-motion: reduce)").matches};
 
@@ -182,11 +182,11 @@ async function fetchPositions(){
   for(let k = 0; k < SOURCES.length; k++){
     const i = (S.src + k) % SOURCES.length, src = SOURCES[i];
     try{
-      const r = await request(src.url, {}, src.relay ? 25000 : 9000);
+      const r = await request(src.url);
       const j = await r.json();
       if(j.error) throw new Error(j.error);
       S.diag[src.name] = "working";
-      S.src = i; S.srcName = src.relay ? `relay (${r.headers.get("X-Source") || "?"})` : src.name;
+      S.src = i; S.srcName = src.name;
       return src.opensky ? fromOpenSky(j) : normalize(j);
     }catch(e){
       S.diag[src.name] = e.name === "AbortError" ? "no answer" : e.message === "Failed to fetch" ? "blocked by the browser or network" : e.message;
@@ -219,13 +219,7 @@ async function fetchRoutes(list){
   if(!need.length) return;
   try{
     const body = JSON.stringify({planes:need.map(a => ({callsign:a.cs, lat:a.lat, lng:a.lon}))});
-    let arr = null;
-    for(let k = 0; k < ROUTE_URLS.length && !arr; k++){
-      const i = (S.routeSrc + k) % ROUTE_URLS.length;
-      try{ arr = await (await request(ROUTE_URLS[i], {method:"POST", headers:{"Content-Type":"application/json"}, body}, 12000)).json(); S.routeSrc = i; }
-      catch(e){}
-    }
-    if(!arr) throw new Error("routes unavailable");
+    const arr = await (await request(ROUTE_URL, {method:"POST", headers:{"Content-Type":"application/json"}, body}, 12000)).json();
     const found = new Map((Array.isArray(arr) ? arr : []).map(r => [String(r.callsign||"").trim().toUpperCase(), r]));
     need.forEach(a => S.routes.set(a.cs, parseRoute(found.get(a.cs), now)));
   }catch(e){
@@ -377,7 +371,8 @@ function renderScope(){
 function renderBoard(){
   $("board").innerHTML = !S.inbound.length
     ? `<li class="empty">${S.error
-        ? "Couldn't reach any flight data source. Check your connection; the board retries every 15 seconds."
+        ? (IS_APP ? "Couldn't reach any flight data source. Check your connection; the board retries every 15 seconds."
+                  : `Flight data services don't allow websites to read their data directly. <a href="${APK_URL}">Download the Android app</a> to see live arrivals.`)
         : "No aircraft are heading for NMI at the moment. New arrivals appear as soon as they're in range."}</li>`
     : S.inbound.map(a => {
         const r = a.c.route, open = S.sel === a.hex;
@@ -405,7 +400,7 @@ function renderBoard(){
 }
 function renderMeta(){
   if(!S.lastOk){
-    if(S.error){ $("lede").textContent = "Couldn't reach the flight data sources."; $("meta").innerHTML = `<span class="dot off"></span>Retrying every 15 seconds`; }
+    if(S.error){ $("lede").textContent = IS_APP ? "Couldn't reach the flight data sources." : "Live data needs the Android app."; $("meta").innerHTML = `<span class="dot off"></span>Retrying every 15 seconds`; }
     return;
   }
   const n = S.inbound.length, next = S.inbound.find(a => a.eta != null), ago = Math.round((Date.now()-S.lastOk)/1000);
@@ -437,7 +432,7 @@ document.addEventListener("visibilitychange", () => { if(!document.hidden && Dat
 setInterval(() => { renderMeta(); if(!S.reduce && !document.hidden && S.inbound.length) renderScope(); }, 1000);
 
 renderAll(); poll();
-if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
+if(!IS_APP && "serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
 </html>

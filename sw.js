@@ -1,5 +1,5 @@
 // Keeps the app itself available offline; live flight data always comes straight from the network.
-const CACHE = "nmi-arrivals-v4";
+const CACHE = "nmi-arrivals-v5";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); });
 self.addEventListener("activate", e => e.waitUntil(
