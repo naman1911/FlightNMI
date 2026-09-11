@@ -1,0 +1,75 @@
+# Builds the NMI Arrivals Android app every time index.html changes,
+# and publishes the APK as a download on the repo's Releases page.
+name: Build Android app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Create the Android project
+        run: |
+          mkdir -p app/www
+          cp index.html icon-192.png icon-512.png app/www/
+          cd app
+          npm init -y > /dev/null
+          npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8
+          cat > capacitor.config.json <<'JSON'
+          {
+            "appId": "io.github.naman1911.nmiarrivals",
+            "appName": "NMI Arrivals",
+            "webDir": "www",
+            "backgroundColor": "#0E2A33",
+            "plugins": { "CapacitorHttp": { "enabled": true } }
+          }
+          JSON
+          npx cap add android
+
+      - name: Use the NMI icon and a plain teal launch screen
+        working-directory: app/android/app/src/main/res
+        run: |
+          rm -rf mipmap-anydpi-v26
+          for d in mipmap-*dpi; do
+            cp ../../../../../../icon-512.png "$d/ic_launcher.png"
+            cp ../../../../../../icon-512.png "$d/ic_launcher_round.png"
+          done
+          find . -name 'splash.png' -delete
+          printf '%s\n' '<?xml version="1.0" encoding="utf-8"?>' \
+            '<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#0E2A33"/></shape>' \
+            > drawable/splash.xml
+
+      - name: Build the APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../../NMI-Arrivals.apk
+
+      - name: Publish the APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: NMI Arrivals (build ${{ github.run_number }})
+          body: Download NMI-Arrivals.apk below and open it on your Android phone to install.
+          files: NMI-Arrivals.apk
+          make_latest: true
