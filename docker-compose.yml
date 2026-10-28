@@ -1,0 +1,16 @@
+# Run with:  docker compose up -d
+# Settings come from a .env file next to this file (copy .env.example).
+services:
+  flightnmi:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - flightnmi-data:/data
+
+volumes:
+  flightnmi-data:
