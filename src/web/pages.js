@@ -3,7 +3,7 @@ import { airportLabel } from "../airports.js";
 import { classifyFlight } from "../classify.js";
 import { EVENT_TYPES, CATEGORIES, MAX_RECIPIENTS } from "../store.js";
 import { mask } from "../notify/index.js";
-import { formatDateTime } from "../notify/format.js";
+import { formatDateTime, dayKey } from "../notify/format.js";
 import { describeAircraft } from "../aircraft.js";
 
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -43,6 +43,12 @@ export function statusPage({ health, flightData, tracker, store, config, now = D
     : `<span class="bad">Problem:</span> no flight data since ${ago(health.lastPollOkAt, now)}. ${esc(flightData.status.lastError || health.pollError || "")}`;
   const channels = [config.email ? "email" : null, config.whatsapp ? `WhatsApp (${config.whatsapp.provider})` : null].filter(Boolean);
   const recipients = store.recipients;
+  const today = dayKey(now, config.timeZone);
+  const emailsToday = store.counter("email", today);
+  const gmail = config.email && /gmail\.com$|googlemail\.com$/i.test(config.email.host);
+  const emailNote = config.email
+    ? ` Emails sent today (IST): ${emailsToday}.` + (gmail ? ` <span class="${emailsToday >= 400 ? "warn" : "muted"}">Gmail allows about 500 a day${emailsToday >= 400 ? ": close to the limit. Untick \"Approaching\" for some recipients to halve the volume" : ""}.</span>` : "")
+    : "";
 
   const inboundRows = inbound.length
     ? inbound.map((f) => {
@@ -65,7 +71,7 @@ export function statusPage({ health, flightData, tracker, store, config, now = D
 <h2>Service</h2><p>${svc}</p>
 <p>Running for ${ago(health.startedAt, now).replace(" ago", "")}. ${health.pollCount} data checks, every ${config.pollSeconds} s.
 Alerts go out by ${channels.length ? esc(channels.join(" and ")) : '<span class="bad">nothing (no email or WhatsApp configured)</span>'} to ${recipients.length} of ${MAX_RECIPIENTS} possible recipients:
-${recipients.length ? recipients.map((r) => `${esc(r.name)}${r.enabled ? "" : " (paused)"}`).join(", ") : '<span class="warn">none yet</span>'}.</p>
+${recipients.length ? recipients.map((r) => `${esc(r.name)}${r.enabled ? "" : " (paused)"}`).join(", ") : '<span class="warn">none yet</span>'}.${emailNote}</p>
 <h2>Heading for NMI now</h2>
 <table><tr><th>Flight</th><th>From</th><th>Aircraft</th><th>Kind</th><th>Status</th><th>ETA</th><th>Position</th></tr>${inboundRows}</table>
 <h2>Recent alerts</h2>

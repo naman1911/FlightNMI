@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { describeEvent, describeOutage, describeTest, formatTime } from "../src/notify/format.js";
+import { describeEvent, describeOutage, describeTest, formatTime, dayKey } from "../src/notify/format.js";
 import { classifyFlight } from "../src/classify.js";
 
 const route = { origin: "VIDP", dest: "VANM", originInfo: null, plausible: true };
@@ -9,6 +9,11 @@ const cls = classifyFlight({ callsign: "IGO6123", type: "A21N" });
 
 test("formatTime renders IST", () => {
   assert.equal(formatTime(Date.UTC(2026, 0, 15, 9, 0)), "14:30 IST");
+});
+
+test("dayKey uses the airport's calendar day", () => {
+  assert.equal(dayKey(Date.UTC(2026, 0, 15, 20, 0)), "2026-01-16", "01:30 IST is already the next day");
+  assert.equal(dayKey(Date.UTC(2026, 0, 15, 9, 0)), "2026-01-15");
 });
 
 test("approaching message says who, from where, when", () => {

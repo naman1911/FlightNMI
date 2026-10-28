@@ -3,3 +3,6 @@ data
 .env
 .git
 .github
+dist
+.wrangler
+.dev.vars

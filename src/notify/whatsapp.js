@@ -8,7 +8,7 @@ async function readJson(res) {
 
 export function createTwilioWhatsApp(cfg, { fetchImpl = globalThis.fetch } = {}) {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(cfg.accountSid)}/Messages.json`;
-  const auth = "Basic " + Buffer.from(`${cfg.accountSid}:${cfg.authToken}`).toString("base64");
+  const auth = "Basic " + btoa(`${cfg.accountSid}:${cfg.authToken}`);
   return {
     name: "whatsapp",
     describe: () => `Twilio from ${cfg.from}`,

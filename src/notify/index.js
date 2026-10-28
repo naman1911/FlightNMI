@@ -1,5 +1,5 @@
 // Decides who gets which message and delivers it, with retries and a log.
-import { describeEvent, describeOutage, describeRecovery, describeTest } from "./format.js";
+import { describeEvent, describeOutage, describeRecovery, describeTest, dayKey } from "./format.js";
 import { log } from "../log.js";
 
 const RETRY_DELAYS_MS = [1000, 5000, 20000];
@@ -22,6 +22,9 @@ export class Notifier {
   }
 
   get configured() { return Boolean(this.channels.email || this.channels.whatsapp); }
+
+  /** Resolves once every queued flight alert has been delivered or given up on. */
+  idle() { return this.queue; }
 
   /** Recipients who want this event type and flight category. */
   recipientsFor(event, cls) {
@@ -74,6 +77,7 @@ export class Notifier {
           continue;
         }
         const result = await this._deliver(channel, { to, subject, text });
+        if (result.ok) this.store.bumpCounter(channelName, dayKey(Date.now(), this.opts.timeZone));
         deliveries.push({ ...entry, ...result });
       }
     }

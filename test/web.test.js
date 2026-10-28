@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createWebServer } from "../src/web/http.js";
-import { Store } from "../src/store.js";
+import { Store } from "../src/store-file.js";
 import { Tracker } from "../src/tracker.js";
 import { buildConfig } from "../src/config.js";
 
@@ -41,6 +41,8 @@ test("status page and health respond without authentication", async () => {
   assert.equal((await health.json()).ok, true);
   const status = await (await fetch(base + "/api/status")).json();
   assert.equal(status.channels.email, true);
+  assert.equal(status.sentToday.email, 0);
+  assert.match(html, /Emails sent today \(IST\): 0\./);
   assert.equal(status.recipients.length, 0);
 });
 

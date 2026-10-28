@@ -9,6 +9,13 @@ export function formatTime(ms, timeZone = "Asia/Kolkata") {
   return `${t} IST`;
 }
 
+/** Calendar day in the airport's time zone, as YYYY-MM-DD. */
+export function dayKey(ms, timeZone = "Asia/Kolkata") {
+  const parts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone }).formatToParts(new Date(ms));
+  const get = (t) => parts.find((p) => p.type === t).value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 export function formatDateTime(ms, timeZone = "Asia/Kolkata") {
   return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone }).format(new Date(ms)) + " IST";
 }

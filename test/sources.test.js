@@ -72,3 +72,13 @@ test("fetchRoutes caches results and backs off on failure", async () => {
   assert.ok(failing.routesPausedUntil > 2000);
   assert.equal(failing.status.routesError, "boom");
 });
+
+test("fetch is invoked as a plain function, as Cloudflare Workers require", async () => {
+  const strictFetch = async function () {
+    if (this !== undefined && this !== globalThis) throw new TypeError("Illegal invocation");
+    return { ok: true, status: 200, json: async () => ({ ac: [] }) };
+  };
+  const fd = new FlightData({ fetchImpl: strictFetch });
+  const r = await fd.fetchPositions(1000);
+  assert.equal(r.source, "adsb.lol");
+});

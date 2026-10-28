@@ -1,7 +1,5 @@
 // Loads configuration from the environment (and from a .env file in the
 // working directory, if present) and validates it once at startup.
-import fs from "node:fs";
-import path from "node:path";
 
 /** Minimal .env parser: KEY=value, optional quotes, # comments. */
 export function parseDotenv(text) {
@@ -24,14 +22,6 @@ export function parseDotenv(text) {
     if (/^[A-Z_][A-Z0-9_]*$/i.test(key)) out[key] = val;
   }
   return out;
-}
-
-export function loadDotenv(file = path.resolve(process.cwd(), ".env"), env = process.env) {
-  if (!fs.existsSync(file)) return false;
-  for (const [k, v] of Object.entries(parseDotenv(fs.readFileSync(file, "utf8")))) {
-    if (env[k] === undefined) env[k] = v;
-  }
-  return true;
 }
 
 const str = (v) => (v === undefined || v === null ? "" : String(v).trim());
@@ -63,7 +53,7 @@ export function buildConfig(env = process.env) {
     publicUrl: str(env.PUBLIC_URL).replace(/\/+$/, ""),
     pollSeconds: int(env.POLL_SECONDS, 20, 10, 60, "POLL_SECONDS"),
     noticeMinutes: int(env.NOTICE_MINUTES, 20, 3, 60, "NOTICE_MINUTES"),
-    dataDir: path.resolve(str(env.DATA_DIR) || "./data"),
+    dataDir: str(env.DATA_DIR) || "./data",
     timeZone: "Asia/Kolkata",
     email: null,
     whatsapp: null,
@@ -73,6 +63,7 @@ export function buildConfig(env = process.env) {
 
   if (str(env.SMTP_HOST)) {
     cfg.email = {
+      provider: "smtp",
       host: str(env.SMTP_HOST),
       port: int(env.SMTP_PORT, 587, 1, 65535, "SMTP_PORT"),
       secure: bool(env.SMTP_SECURE, false),
@@ -81,6 +72,11 @@ export function buildConfig(env = process.env) {
       from: str(env.EMAIL_FROM) || str(env.SMTP_USER),
     };
     if (!cfg.email.from) problems.push("EMAIL_FROM (or SMTP_USER) is required when SMTP_HOST is set.");
+  } else if (str(env.BREVO_API_KEY)) {
+    cfg.email = { provider: "brevo", apiKey: str(env.BREVO_API_KEY), from: str(env.EMAIL_FROM) };
+    if (!/^[^<]*<[^\s@]+@[^\s@]+\.[^\s@]+>$|^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cfg.email.from)) {
+      problems.push('EMAIL_FROM is required with BREVO_API_KEY and must be an address verified in Brevo, e.g. "FlightNMI <you@gmail.com>".');
+    }
   }
 
   if (str(env.TWILIO_ACCOUNT_SID)) {
