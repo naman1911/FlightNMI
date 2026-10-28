@@ -67,3 +67,14 @@ test("old seen keys are pruned", () => {
   s.pruneSeen(24 * 3600 * 1000);
   assert.equal(s.hasSeen("old"), false);
 });
+
+test("daily delivery counters roll over by day", () => {
+  const s = new Store(tmp()).load();
+  s.bumpCounter("email", "2026-10-28");
+  s.bumpCounter("email", "2026-10-28");
+  assert.equal(s.counter("email", "2026-10-28"), 2);
+  assert.equal(s.counter("email", "2026-10-29"), 0);
+  s.bumpCounter("email", "2026-10-29");
+  assert.equal(s.counter("email", "2026-10-29"), 1);
+  assert.equal(s.counter("whatsapp", "2026-10-29"), 0);
+});

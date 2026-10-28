@@ -6,6 +6,7 @@ import path from "node:path";
 import { Store } from "../src/store.js";
 import { Notifier, mask } from "../src/notify/index.js";
 import { classifyFlight } from "../src/classify.js";
+import { dayKey } from "../src/notify/format.js";
 
 const store = () => new Store(fs.mkdtempSync(path.join(os.tmpdir(), "flightnmi-"))).load();
 const fakeChannel = (name, failTimes = 0) => {
@@ -40,6 +41,8 @@ test("fan-out honours per-recipient channels and preferences", async () => {
   const r2 = await n.sendEvent(cargoEvent, classifyFlight({ callsign: "FDX1", type: "B77L" }));
   assert.deepEqual(r2.map((d) => d.recipient), ["Both", "Both"], "EmailOnly opted out of cargo");
   assert.equal(s.log.length, 2);
+  assert.equal(s.counter("email", dayKey(Date.now())), 3, "successful emails are counted for today");
+  assert.equal(s.counter("whatsapp", dayKey(Date.now())), 2);
 });
 
 test("delivery retries, then records the failure without throwing", async () => {

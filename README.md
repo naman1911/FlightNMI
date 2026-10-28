@@ -33,6 +33,18 @@ Runway 26. Seen on the ground at the airport.
 
 Everything about detection is in `src/tracker.js`, which has no network or timers, and is covered by tests for the normal approach, lost signal on final, Mumbai arrivals on runways 27 and 32, overflights, departures, go-arounds, and repeated flights.
 
+## Quick start with Gmail (free)
+
+On a Linux machine that stays on (a free Oracle Cloud VM, a Raspberry Pi, an old laptop):
+
+```bash
+git clone https://github.com/naman1911/FlightNMI.git && cd FlightNMI && bash scripts/setup.sh
+```
+
+The script installs Docker if needed, asks for the Gmail address that will send the alerts and its [app password](https://myaccount.google.com/apppasswords) (turn on 2-Step Verification first), generates the admin token, writes `.env`, starts the service and confirms Gmail login worked. It then prints the status page address, the admin address and the token. Open the admin page, add up to three people with their email addresses, and press **Send a test message** for each.
+
+Gmail allows about 500 messages a day. Each flight is two alerts per person, so three people cover roughly 80 arrivals a day. The status page shows how many emails went out today and warns when the limit is near; if it is, untick "Approaching" for some recipients to halve the volume.
+
 ## Running it
 
 You need Node.js 22 or newer, or Docker. The service must run somewhere that stays on (a small VPS, a Raspberry Pi at home, or a hosted container service such as Fly.io, Railway or Render). It cannot run as a static website because browsers are not allowed to read the flight data directly, and because something has to be awake to send the messages.
@@ -112,6 +124,7 @@ src/airports.js      NMI, BOM and airport names
 src/notify/          message text, email (SMTP), WhatsApp (Twilio or Meta), dispatcher
 src/web/             status page, admin page, health endpoint
 src/store.js         recipients, alert log and sent-event memory (JSON file, atomic writes)
+scripts/             setup.sh (one-command Gmail setup), simulate.js, check-config.js
 test/                node:test suites; `npm test`
 ```
 

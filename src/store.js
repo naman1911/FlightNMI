@@ -63,7 +63,7 @@ export class Store {
   constructor(dataDir) {
     this.dir = dataDir;
     this.file = path.join(dataDir, "state.json");
-    this.state = { version: 1, recipients: [], log: [], seen: {} };
+    this.state = { version: 1, recipients: [], log: [], seen: {}, counters: {} };
     this._saveTimer = null;
   }
 
@@ -76,6 +76,7 @@ export class Store {
         recipients: Array.isArray(raw.recipients) ? raw.recipients : [],
         log: Array.isArray(raw.log) ? raw.log : [],
         seen: raw.seen && typeof raw.seen === "object" ? raw.seen : {},
+        counters: raw.counters && typeof raw.counters === "object" ? raw.counters : {},
       };
       // Re-validate so an old or hand-edited file can never carry bad data forward.
       this.state.recipients = this.state.recipients
@@ -148,6 +149,20 @@ export class Store {
 
   pruneSeen(now) {
     for (const [k, t] of Object.entries(this.state.seen)) if (now - t > SEEN_TTL_MS) delete this.state.seen[k];
+  }
+
+  /** Count one successful delivery on `channel` for calendar day `day` (e.g. "2026-10-28"). */
+  bumpCounter(channel, day) {
+    const c = this.state.counters[channel];
+    if (!c || c.day !== day) this.state.counters[channel] = { day, sent: 0 };
+    this.state.counters[channel].sent++;
+    this.saveSoon();
+  }
+
+  /** Deliveries sent on `channel` during `day`; 0 if the counter is for another day. */
+  counter(channel, day) {
+    const c = this.state.counters[channel];
+    return c && c.day === day ? c.sent : 0;
   }
 
   addLog(entry) {

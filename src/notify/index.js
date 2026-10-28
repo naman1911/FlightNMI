@@ -1,5 +1,5 @@
 // Decides who gets which message and delivers it, with retries and a log.
-import { describeEvent, describeOutage, describeRecovery, describeTest } from "./format.js";
+import { describeEvent, describeOutage, describeRecovery, describeTest, dayKey } from "./format.js";
 import { log } from "../log.js";
 
 const RETRY_DELAYS_MS = [1000, 5000, 20000];
@@ -74,6 +74,7 @@ export class Notifier {
           continue;
         }
         const result = await this._deliver(channel, { to, subject, text });
+        if (result.ok) this.store.bumpCounter(channelName, dayKey(Date.now(), this.opts.timeZone));
         deliveries.push({ ...entry, ...result });
       }
     }

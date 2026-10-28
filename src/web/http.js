@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { statusPage, loginPage, adminPage, maskedRecipients } from "./pages.js";
 import { EVENT_TYPES, CATEGORIES, MAX_RECIPIENTS } from "../store.js";
 import { log } from "../log.js";
+import { dayKey } from "../notify/format.js";
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const MAX_BODY = 64 * 1024;
@@ -106,6 +107,7 @@ export function createWebApp({ config, store, tracker, flightData, notifier, hea
       sources: flightData.status.sources,
       lastError: flightData.status.lastError || health.pollError || "",
       channels: { email: Boolean(config.email), whatsapp: config.whatsapp ? config.whatsapp.provider : false },
+      sentToday: { day: dayKey(now, config.timeZone), email: store.counter("email", dayKey(now, config.timeZone)), whatsapp: store.counter("whatsapp", dayKey(now, config.timeZone)) },
       recipients: maskedRecipients(store),
       inbound: tracker.inbound(),
       recentAlerts: store.log.slice(0, 20).map((e) => ({ at: e.at, kind: e.kind, subject: e.subject, deliveries: e.deliveries })),
