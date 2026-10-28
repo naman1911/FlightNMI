@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Validates .env / environment and, where possible, checks the channels can
 // be reached. Run:  npm run check-config
-import { loadDotenv, buildConfig } from "../src/config.js";
+import { buildConfig } from "../src/config.js";
+import { loadDotenv } from "../src/dotenv.js";
 import { createEmailChannel } from "../src/notify/email.js";
 import { createWhatsAppChannel } from "../src/notify/whatsapp.js";
 

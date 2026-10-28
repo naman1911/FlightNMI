@@ -23,6 +23,9 @@ export class Notifier {
 
   get configured() { return Boolean(this.channels.email || this.channels.whatsapp); }
 
+  /** Resolves once every queued flight alert has been delivered or given up on. */
+  idle() { return this.queue; }
+
   /** Recipients who want this event type and flight category. */
   recipientsFor(event, cls) {
     return this.store.recipients.filter((r) => r.enabled && r.events?.[event.type] !== false && r.categories?.[cls.category] !== false);

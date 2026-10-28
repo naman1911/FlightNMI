@@ -45,7 +45,27 @@ The script installs Docker if needed, asks for the Gmail address that will send 
 
 Gmail allows about 500 messages a day. Each flight is two alerts per person, so three people cover roughly 80 arrivals a day. The status page shows how many emails went out today and warns when the limit is near; if it is, untick "Approaching" for some recipients to halve the volume.
 
-## Running it
+## Running it on Cloudflare for free (no server at all)
+
+The same code runs as a Cloudflare Worker on the free plan. A Durable Object keeps the tracker in memory, polls every 20 seconds from its own alarm (a once-a-minute cron makes sure the alarm stays armed), stores recipients and the alert log in Cloudflare's free storage, and serves the status and admin pages. Nothing runs on your computer and no card is needed.
+
+Cloudflare cannot talk SMTP, so email goes through **Brevo**'s free plan (300 emails a day, no card). Steps:
+
+1. **Brevo**: sign up at brevo.com (free plan). Under *Senders & IPs* add and verify the email address alerts should come from (your own Gmail is fine). Under *SMTP & API → API Keys* create an API key.
+2. **Cloudflare**: sign up at dash.cloudflare.com (free). Go to *Workers & Pages → Create → Import a repository*, connect GitHub and choose this repository. Leave the build command empty and the deploy command as `npx wrangler deploy`. Deploy.
+3. In the new Worker go to *Settings → Variables and Secrets* and add:
+   - `ADMIN_TOKEN` (secret): a long random password for the admin page.
+   - `BREVO_API_KEY` (secret): the key from step 1.
+   - `EMAIL_FROM` (text): the verified sender, e.g. `FlightNMI <you@gmail.com>`.
+   - `PUBLIC_URL` (text): the Worker's address, e.g. `https://flightnmi.<your-subdomain>.workers.dev`.
+   Save, then redeploy (or push any commit). Until these are set, the Worker's page lists exactly what is missing.
+4. Open the Worker's address, go to `/admin`, sign in, add up to three people and press **Send a test message** for each.
+
+The status page works the same as the Node version. Each poll is well inside the free plan's limits (one request every 20 seconds, a few storage writes per poll, about 10 ms of processing). If the free plan ever rejects a poll for exceeding CPU time, the `/health` page turns red and recipients get the outage alert.
+
+Local check of the Worker build: `npm run worker:check`. Run it locally with `npm run worker:dev` (needs `.dev.vars` with the same variables).
+
+## Running it on your own machine
 
 You need Node.js 22 or newer, or Docker. The service must run somewhere that stays on (a small VPS, a Raspberry Pi at home, or a hosted container service such as Fly.io, Railway or Render). It cannot run as a static website because browsers are not allowed to read the flight data directly, and because something has to be awake to send the messages.
 
@@ -114,16 +134,20 @@ npm run simulate  # replays a synthetic Delhi-to-NMI arrival and prints the exac
 ## Layout
 
 ```
-src/server.js        start-up, polling loop, event handling, outage alerts
+src/server.js        Node entry: config, file store, timer-driven polling, web server
+src/service.js       the service itself (poll, events, outage alerts), used by Node and Cloudflare
+src/worker/          Cloudflare Worker entry and Durable Object (alarm-driven polling, storage)
 src/sources.js       adsb.lol / airplanes.live client and route lookup
 src/tracker.js       arrival detection state machine (pure, tested)
 src/classify.js      commercial / cargo / other and flight labels
 src/airlines.js      operator table (edit to add an airline or cargo carrier)
 src/aircraft.js      aircraft type table: name, size class, seats or cargo payload
 src/airports.js      NMI, BOM and airport names
-src/notify/          message text, email (SMTP), WhatsApp (Twilio or Meta), dispatcher
-src/web/             status page, admin page, health endpoint
-src/store.js         recipients, alert log and sent-event memory (JSON file, atomic writes)
+src/notify/          message text, email (SMTP or Brevo), WhatsApp (Twilio or Meta), dispatcher
+src/web/             pages, the web app (platform-neutral), Node and Fetch adapters
+src/store.js         recipients, alert log, sent-event memory and counters (logic + validation)
+src/store-file.js    JSON-file persistence for Node (atomic writes)
+wrangler.toml        Cloudflare Workers deployment
 scripts/             setup.sh (one-command Gmail setup), simulate.js, check-config.js
 test/                node:test suites; `npm test`
 ```

@@ -16,5 +16,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run simulate
+      - name: Cloudflare Worker bundles
+        run: npm run worker:check
       - name: Docker image builds
         run: docker build -t flightnmi:ci .

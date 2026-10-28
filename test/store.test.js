@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Store, validateRecipient, normalizePhone, MAX_RECIPIENTS } from "../src/store.js";
+import { validateRecipient, normalizePhone, MAX_RECIPIENTS } from "../src/store.js";
+import { Store } from "../src/store-file.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "flightnmi-"));
 
@@ -38,7 +39,7 @@ test("store enforces the recipient limit and rejects duplicates", () => {
   assert.equal(s.recipients.length, 2);
 });
 
-test("state survives a reload and seen keys dedupe", () => {
+test("state survives a reload and seen keys dedupe", async () => {
   const dir = tmp();
   const s = new Store(dir).load();
   s.setRecipients([{ name: "A", email: "a@x.co" }]);
@@ -46,7 +47,7 @@ test("state survives a reload and seen keys dedupe", () => {
   assert.equal(s.markSeen("k1", now), true);
   assert.equal(s.markSeen("k1", now + 1000), false);
   s.addLog({ kind: "landed", subject: "x", deliveries: [] });
-  s.flush();
+  await s.flush();
   const again = new Store(dir).load();
   assert.equal(again.recipients[0].name, "A");
   assert.equal(again.log.length, 1);

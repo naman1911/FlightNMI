@@ -12,9 +12,15 @@
     "start": "node src/server.js",
     "test": "node --test \"test/**/*.test.js\"",
     "simulate": "node scripts/simulate.js",
-    "check-config": "node scripts/check-config.js"
+    "check-config": "node scripts/check-config.js",
+    "worker:check": "wrangler deploy --dry-run --outdir=dist",
+    "worker:dev": "wrangler dev --port 8787",
+    "worker:deploy": "wrangler deploy"
   },
   "dependencies": {
     "nodemailer": "^10.2.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   }
 }

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Store } from "../src/store.js";
+import { Store } from "../src/store-file.js";
 import { Notifier, mask } from "../src/notify/index.js";
 import { classifyFlight } from "../src/classify.js";
 import { dayKey } from "../src/notify/format.js";

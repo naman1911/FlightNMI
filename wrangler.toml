@@ -1,0 +1,30 @@
+# Cloudflare Workers deployment of FlightNMI.
+# Deploy from the Cloudflare dashboard (Workers & Pages -> Create -> import
+# this GitHub repository) or locally with:  npx wrangler deploy
+name = "flightnmi"
+main = "src/worker/index.js"
+compatibility_date = "2025-10-01"
+workers_dev = true
+
+[observability]
+enabled = true
+
+# Safety net: once a minute, make sure the watcher's 20-second alarm is armed.
+[triggers]
+crons = ["* * * * *"]
+
+[[durable_objects.bindings]]
+name = "WATCHER"
+class_name = "Watcher"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Watcher"]
+
+# Plain settings. Secrets (ADMIN_TOKEN, BREVO_API_KEY) are set in the
+# dashboard under Settings -> Variables and Secrets, never here.
+[vars]
+POLL_SECONDS = "20"
+NOTICE_MINUTES = "20"
+EMAIL_FROM = ""
+PUBLIC_URL = ""

@@ -65,7 +65,8 @@ export function describeError(e) {
 
 export class FlightData {
   constructor({ fetchImpl = globalThis.fetch, timeoutMs = 10000 } = {}) {
-    this.fetch = fetchImpl;
+    // Never call fetch as a method of this object: Workers reject fetch invoked with a foreign `this`.
+    this.fetch = (...args) => fetchImpl(...args);
     this.timeoutMs = timeoutMs;
     this.preferred = 0;
     this.routes = new Map(); // callsign -> {route|null, at}
@@ -130,6 +131,17 @@ export class FlightData {
       this.status.routesError = describeError(e);
       log.warn("route lookup failed; approach geometry alone until it recovers", { error: this.status.routesError });
     }
+  }
+
+  toJSON() { return { preferred: this.preferred, routes: [...this.routes], routesPausedUntil: this.routesPausedUntil, status: this.status }; }
+
+  restore(json) {
+    if (!json) return this;
+    if (Number.isInteger(json.preferred) && json.preferred >= 0 && json.preferred < SOURCES.length) this.preferred = json.preferred;
+    if (Array.isArray(json.routes)) this.routes = new Map(json.routes);
+    if (typeof json.routesPausedUntil === "number") this.routesPausedUntil = json.routesPausedUntil;
+    if (json.status && typeof json.status === "object") this.status = { ...this.status, ...json.status };
+    return this;
   }
 
   /** Map of callsign -> route for the tracker (only entries with a route). */

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createWebServer } from "../src/web/http.js";
-import { Store } from "../src/store.js";
+import { Store } from "../src/store-file.js";
 import { Tracker } from "../src/tracker.js";
 import { buildConfig } from "../src/config.js";
 

@@ -1,9 +1,8 @@
-// Persistent state: recipients, the notification log and the set of events
-// already sent (so a restart never re-sends an alert). Everything lives in
-// one small JSON file written atomically (write temp file, then rename).
-import fs from "node:fs";
-import path from "node:path";
-import crypto from "node:crypto";
+// State shared by every deployment: recipients, the notification log, the
+// set of events already sent (so a restart never re-sends an alert) and
+// per-day delivery counters. BaseStore holds the logic and validation; how
+// the state is persisted is left to a subclass (a JSON file on Node, Durable
+// Object storage on Cloudflare).
 
 export const MAX_RECIPIENTS = 3;
 export const EVENT_TYPES = ["approaching", "landed", "go_around"];
@@ -47,7 +46,7 @@ export function validateRecipient(input, existingId) {
   return {
     ok: true,
     value: {
-      id: existingId || input?.id || crypto.randomUUID(),
+      id: existingId || input?.id || globalThis.crypto.randomUUID(),
       name,
       email,
       whatsapp,
@@ -59,57 +58,39 @@ export function validateRecipient(input, existingId) {
   };
 }
 
-export class Store {
-  constructor(dataDir) {
-    this.dir = dataDir;
-    this.file = path.join(dataDir, "state.json");
-    this.state = { version: 1, recipients: [], log: [], seen: {}, counters: {} };
-    this._saveTimer = null;
+export function emptyState() {
+  return { version: 1, recipients: [], log: [], seen: {}, counters: {} };
+}
+
+export class BaseStore {
+  constructor() {
+    this.state = emptyState();
   }
 
-  load() {
-    fs.mkdirSync(this.dir, { recursive: true });
-    if (fs.existsSync(this.file)) {
-      const raw = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      this.state = {
-        version: 1,
-        recipients: Array.isArray(raw.recipients) ? raw.recipients : [],
-        log: Array.isArray(raw.log) ? raw.log : [],
-        seen: raw.seen && typeof raw.seen === "object" ? raw.seen : {},
-        counters: raw.counters && typeof raw.counters === "object" ? raw.counters : {},
-      };
-      // Re-validate so an old or hand-edited file can never carry bad data forward.
-      this.state.recipients = this.state.recipients
-        .map((r) => validateRecipient(r, r.id))
-        .filter((v) => v.ok)
-        .map((v) => v.value)
-        .slice(0, MAX_RECIPIENTS);
-    }
-    this.pruneSeen(Date.now());
+  /** Take over state read from disk or storage, dropping anything invalid. */
+  adopt(raw, now = Date.now()) {
+    raw = raw && typeof raw === "object" ? raw : {};
+    this.state = {
+      version: 1,
+      recipients: Array.isArray(raw.recipients) ? raw.recipients : [],
+      log: Array.isArray(raw.log) ? raw.log : [],
+      seen: raw.seen && typeof raw.seen === "object" ? raw.seen : {},
+      counters: raw.counters && typeof raw.counters === "object" ? raw.counters : {},
+    };
+    // Re-validate so an old or hand-edited file can never carry bad data forward.
+    this.state.recipients = this.state.recipients
+      .map((r) => validateRecipient(r, r.id))
+      .filter((v) => v.ok)
+      .map((v) => v.value)
+      .slice(0, MAX_RECIPIENTS);
+    this.pruneSeen(now);
     return this;
   }
 
-  save() {
-    fs.mkdirSync(this.dir, { recursive: true });
-    const tmp = `${this.file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.state, null, 2));
-    fs.renameSync(tmp, this.file);
-  }
-
-  /** Coalesce bursts of writes into one disk write. */
-  saveSoon() {
-    if (this._saveTimer) return;
-    this._saveTimer = setTimeout(() => {
-      this._saveTimer = null;
-      try { this.save(); } catch (e) { this.lastSaveError = e; }
-    }, 250);
-    if (typeof this._saveTimer.unref === "function") this._saveTimer.unref();
-  }
-
-  flush() {
-    if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
-    this.save();
-  }
+  /** Persistence hooks. Subclasses override; the base store only keeps state in memory. */
+  _changed() {}
+  _changedNow() { this._changed(); }
+  async flush() {}
 
   get recipients() { return this.state.recipients; }
 
@@ -126,7 +107,7 @@ export class Store {
     const dup = out.find((r, i) => out.findIndex((o) => (r.email && o.email === r.email) || (r.whatsapp && o.whatsapp === r.whatsapp)) !== i);
     if (dup) return { ok: false, error: `${dup.name} shares an address with another recipient.` };
     this.state.recipients = out;
-    this.save();
+    this._changedNow();
     return { ok: true };
   }
 
@@ -141,7 +122,7 @@ export class Store {
   markSeen(key, now = Date.now()) {
     if (this.state.seen[key]) return false;
     this.state.seen[key] = now;
-    this.saveSoon();
+    this._changed();
     return true;
   }
 
@@ -156,7 +137,7 @@ export class Store {
     const c = this.state.counters[channel];
     if (!c || c.day !== day) this.state.counters[channel] = { day, sent: 0 };
     this.state.counters[channel].sent++;
-    this.saveSoon();
+    this._changed();
   }
 
   /** Deliveries sent on `channel` during `day`; 0 if the counter is for another day. */
@@ -168,7 +149,7 @@ export class Store {
   addLog(entry) {
     this.state.log.unshift({ at: Date.now(), ...entry });
     if (this.state.log.length > LOG_LIMIT) this.state.log.length = LOG_LIMIT;
-    this.saveSoon();
+    this._changed();
   }
 
   get log() { return this.state.log; }

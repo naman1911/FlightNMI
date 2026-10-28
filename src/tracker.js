@@ -84,6 +84,16 @@ export class Tracker {
     this.tracks = new Map(); // hex -> track
   }
 
+  /** Plain-object form of the live state, for storage between runs. */
+  toJSON() { return { tracks: [...this.tracks.values()] }; }
+
+  /** Restore state saved by toJSON(). Unknown or malformed input is ignored. */
+  restore(json) {
+    this.tracks = new Map();
+    for (const t of json?.tracks || []) if (t && t.hex) this.tracks.set(t.hex, { ...t, minAlt: t.minAlt == null ? Infinity : t.minAlt, notified: t.notified || {}, last: t.last || {} });
+    return this;
+  }
+
   /** Flights currently believed to be inbound, for the status page. */
   inbound() {
     return [...this.tracks.values()]
