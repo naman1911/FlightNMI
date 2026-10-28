@@ -4,6 +4,7 @@ import { classifyFlight } from "../classify.js";
 import { EVENT_TYPES, CATEGORIES, MAX_RECIPIENTS } from "../store.js";
 import { mask } from "../notify/index.js";
 import { formatDateTime } from "../notify/format.js";
+import { describeAircraft } from "../aircraft.js";
 
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -46,8 +47,10 @@ export function statusPage({ health, flightData, tracker, store, config, now = D
   const inboundRows = inbound.length
     ? inbound.map((f) => {
         const cls = classifyFlight({ callsign: f.callsign, type: f.type });
+        const size = describeAircraft({ type: f.type, isCargo: cls.category === "cargo" });
         return `<tr><td>${esc(cls.label)}<br><span class="muted">${esc(cls.operator || cls.reason)}</span></td>
-<td>${esc(f.route?.origin ? airportLabel(f.route.origin, f.route.originInfo) : "–")}</td><td>${esc(f.type || "–")}</td>
+<td>${esc(f.route?.origin ? airportLabel(f.route.origin, f.route.originInfo) : "–")}</td>
+<td>${size.known ? `${esc(size.name)} (${esc(f.type)})<br><span class="muted">${esc(size.size)}${size.capacity ? `, ${esc(size.capacity)}` : ""}</span>` : esc(f.type || "–")}</td>
 <td>${esc(cls.category)}</td><td>${f.phase === "final" ? `On final${f.runway ? `, runway ${esc(f.runway)}` : ""}` : "Approaching"}</td>
 <td>${f.etaMin != null ? `~${f.etaMin} min` : "–"}</td><td>${Math.round(f.distanceKm)} km, ${f.altFt == null ? "–" : Math.round(f.altFt).toLocaleString("en-IN")} ft</td></tr>`;
       }).join("")
