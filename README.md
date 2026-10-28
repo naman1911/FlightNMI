@@ -58,7 +58,7 @@ Cloudflare cannot talk SMTP, so email goes through **Brevo**'s free plan (300 em
    - `BREVO_API_KEY` (secret): the key from step 1.
    - `EMAIL_FROM` (text): the verified sender, e.g. `FlightNMI <you@gmail.com>`.
    - `PUBLIC_URL` (text): the Worker's address, e.g. `https://flightnmi.<your-subdomain>.workers.dev`.
-   Save, then redeploy (or push any commit). Until these are set, the Worker's page lists exactly what is missing.
+   Saving creates a new deployment automatically. Until these are set, the Worker's page lists exactly what is missing. Values set in the dashboard survive later deploys (`keep_vars` in `wrangler.toml`).
 4. Open the Worker's address, go to `/admin`, sign in, add up to three people and press **Send a test message** for each.
 
 The status page works the same as the Node version. Each poll is well inside the free plan's limits (one request every 20 seconds, a few storage writes per poll, about 10 ms of processing). If the free plan ever rejects a poll for exceeding CPU time, the `/health` page turns red and recipients get the outage alert.

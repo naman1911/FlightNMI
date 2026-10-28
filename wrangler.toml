@@ -21,10 +21,11 @@ class_name = "Watcher"
 tag = "v1"
 new_sqlite_classes = ["Watcher"]
 
-# Plain settings. Secrets (ADMIN_TOKEN, BREVO_API_KEY) are set in the
-# dashboard under Settings -> Variables and Secrets, never here.
+# Plain defaults. Everything personal (ADMIN_TOKEN, BREVO_API_KEY, EMAIL_FROM,
+# PUBLIC_URL) is set in the dashboard under Settings -> Variables and Secrets,
+# never here. keep_vars stops a deploy from wiping those dashboard values.
+keep_vars = true
+
 [vars]
 POLL_SECONDS = "20"
 NOTICE_MINUTES = "20"
-EMAIL_FROM = ""
-PUBLIC_URL = ""
