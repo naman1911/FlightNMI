@@ -2,6 +2,7 @@
 // email and WhatsApp so every recipient sees exactly the same facts.
 import { airportLabel } from "../airports.js";
 import { CATEGORY_LABEL } from "../classify.js";
+import { describeAircraft } from "../aircraft.js";
 
 export function formatTime(ms, timeZone = "Asia/Kolkata") {
   const t = new Intl.DateTimeFormat("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone }).format(new Date(ms));
@@ -19,14 +20,25 @@ function originText(route) {
   return ` from ${airportLabel(route.origin, route.originInfo)}`;
 }
 
-function aircraftLine(event, cls) {
+/** "IndiGo. Commercial flight." */
+function operatorLine(event, cls) {
   const bits = [];
   if (cls.operator) bits.push(cls.operator);
-  if (event.aircraftType) bits.push(event.aircraftType + (event.reg ? ` (${event.reg})` : ""));
-  else if (event.reg) bits.push(event.reg);
   const cat = `${CATEGORY_LABEL[cls.category]} flight` + (cls.category === "other" || cls.reason.startsWith("freighter") || cls.reason.startsWith("operator") ? ` (${cls.reason})` : "");
   bits.push(cat);
   return bits.join(". ") + ".";
+}
+
+/** "Size: narrow-body jet, Airbus A321neo, about 232 seats (A21N, VT-IUX)." */
+export function sizeLine(event, cls) {
+  const a = describeAircraft({ type: event.aircraftType, category: event.emitterCategory, isCargo: cls.category === "cargo" });
+  const ids = [event.aircraftType, event.reg].filter(Boolean).join(", ");
+  const text = a.known ? a.text : a.text.charAt(0).toUpperCase() + a.text.slice(1);
+  return `Size: ${text}${ids && a.known ? ` (${ids})` : event.reg && !a.known ? ` (${event.reg})` : ""}.`;
+}
+
+function aircraftLines(event, cls) {
+  return [operatorLine(event, cls), sizeLine(event, cls)];
 }
 
 /**
@@ -45,7 +57,7 @@ export function describeEvent(event, cls, opts = {}) {
     const eta = event.etaMin;
     subject = eta != null && eta > 2 ? `NMI arrival: ${who} is about ${eta} min out` : `NMI arrival: ${who} is about to land`;
     lines.push(subject);
-    lines.push(aircraftLine(event, cls));
+    lines.push(...aircraftLines(event, cls));
     if (eta != null) {
       lines.push(`Expected to land around ${formatTime(event.at + eta * 60000, tz)}${event.runway ? ` on runway ${event.runway}` : ""}.`);
     }
@@ -54,7 +66,7 @@ export function describeEvent(event, cls, opts = {}) {
   } else if (event.type === "landed") {
     subject = `NMI landed: ${who} at ${formatTime(event.at, tz)}`;
     lines.push(subject);
-    lines.push(aircraftLine(event, cls));
+    lines.push(...aircraftLines(event, cls));
     lines.push(
       (event.runway ? `Runway ${event.runway}. ` : "") +
         (event.confidence === "confirmed"
@@ -64,7 +76,7 @@ export function describeEvent(event, cls, opts = {}) {
   } else if (event.type === "go_around") {
     subject = `NMI go-around: ${who} climbed away${event.runway ? ` from runway ${event.runway}` : ""} at ${formatTime(event.at, tz)}`;
     lines.push(subject);
-    lines.push(aircraftLine(event, cls));
+    lines.push(...aircraftLines(event, cls));
     lines.push("It may make another approach or divert. You will get a separate alert if it lands.");
   } else {
     subject = `NMI: ${event.type} ${who}`;

@@ -6,13 +6,15 @@ There are no charts or maps. The service does one thing: send a short, factual t
 
 ```
 NMI arrival: 6E 6123 from Delhi (DEL) is about 18 min out
-IndiGo. A21N (VT-IUX). Commercial flight.
+IndiGo. Commercial flight.
+Size: narrow-body jet, Airbus A321neo, about 232 seats (A21N, VT-IUX).
 Expected to land around 14:48 IST on runway 26.
 Now 95 km from the airport at 12,000 ft.
 Identified from its filed route to Navi Mumbai.
 
 NMI landed: 6E 6123 from Delhi (DEL) at 14:51 IST
-IndiGo. A21N (VT-IUX). Commercial flight.
+IndiGo. Commercial flight.
+Size: narrow-body jet, Airbus A321neo, about 232 seats (A21N, VT-IUX).
 Runway 26. Seen on the ground at the airport.
 ```
 
@@ -25,8 +27,9 @@ Runway 26. Seen on the ground at the airport.
    - **landed**: it is seen on the ground at NMI, or its signal was lost on short final (receivers usually lose aircraft below about 1,000 ft), in which case the time is estimated and the message says so;
    - **go-around**: it was on final and climbed away again.
 4. Each flight is classified as **commercial**, **cargo** or **other** from its operator code and aircraft type. Unknown operators are reported as "other / operator not in our list" rather than guessed.
-5. Recipients get the same plain text on every channel they have. Deliveries are retried three times and logged; the status page shows what was sent and whether it got through.
-6. If no data source has answered for 10 minutes, recipients are told; they are told again when it recovers.
+5. Every alert says **how big the aircraft is**: its name, a size class (light aircraft, business jet, regional turboprop, regional jet, narrow-body, wide-body, very large wide-body, helicopter) and roughly how many seats it has, or for cargo flights roughly how many tonnes it carries. Figures are typical configurations, always written as "about". If the type is not in the table, the size comes from the ADS-B weight category (for example "heavy aircraft, over 136 tonnes, wide-body sized").
+6. Recipients get the same plain text on every channel they have. Deliveries are retried three times and logged; the status page shows what was sent and whether it got through.
+7. If no data source has answered for 10 minutes, recipients are told; they are told again when it recovers.
 
 Everything about detection is in `src/tracker.js`, which has no network or timers, and is covered by tests for the normal approach, lost signal on final, Mumbai arrivals on runways 27 and 32, overflights, departures, go-arounds, and repeated flights.
 
@@ -104,6 +107,7 @@ src/sources.js       adsb.lol / airplanes.live client and route lookup
 src/tracker.js       arrival detection state machine (pure, tested)
 src/classify.js      commercial / cargo / other and flight labels
 src/airlines.js      operator table (edit to add an airline or cargo carrier)
+src/aircraft.js      aircraft type table: name, size class, seats or cargo payload
 src/airports.js      NMI, BOM and airport names
 src/notify/          message text, email (SMTP), WhatsApp (Twilio or Meta), dispatcher
 src/web/             status page, admin page, health endpoint

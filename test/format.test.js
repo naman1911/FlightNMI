@@ -14,7 +14,8 @@ test("formatTime renders IST", () => {
 test("approaching message says who, from where, when", () => {
   const { subject, text } = describeEvent({ ...base, type: "approaching", etaMin: 18, basis: "route" }, cls, { publicUrl: "https://nmi.example" });
   assert.equal(subject, "NMI arrival: 6E 6123 from Delhi (DEL) is about 18 min out");
-  assert.match(text, /IndiGo\. A21N \(VT-ABC\)\. Commercial flight\./);
+  assert.match(text, /IndiGo\. Commercial flight\./);
+  assert.match(text, /Size: narrow-body jet, Airbus A321neo, about 232 seats \(A21N, VT-ABC\)\./);
   assert.match(text, /Expected to land around 14:48 IST/);
   assert.match(text, /95 km from the airport at 12,000 ft/);
   assert.match(text, /filed route/);
@@ -34,10 +35,18 @@ test("go-around and cargo labelling", () => {
   const cargo = classifyFlight({ callsign: "FDX5231", type: "B77L" });
   const { subject, text } = describeEvent({ ...base, callsign: "FDX5231", type: "go_around", runway: "08", route: null }, cargo);
   assert.equal(subject, "NMI go-around: FX 5231 climbed away from runway 08 at 14:30 IST");
-  assert.match(text, /FedEx Express\. A21N \(VT-ABC\)\. Cargo flight\./);
+  assert.match(text, /FedEx Express\. Cargo flight\./);
+  assert.match(text, /Size: narrow-body freighter, Airbus A321neo \(A21N, VT-ABC\)\./, "no seat count on a cargo flight");
 });
 
 test("service and test messages", () => {
   assert.match(describeOutage(12, "adsb.lol: timed out").text, /unavailable for 12 min/);
   assert.match(describeTest({ name: "Asha" }).subject, /test message for Asha/);
+});
+
+test("size line copes with unknown types and missing data", () => {
+  const unknown = describeEvent({ ...base, type: "landed", aircraftType: "ZZZZ", emitterCategory: "A3", reg: "", confidence: "confirmed" }, cls);
+  assert.match(unknown.text, /Size: Large aircraft \(34 to 136 tonnes\), narrow-body airliner sized, type ZZZZ \(not in our list\)\./);
+  const none = describeEvent({ ...base, type: "landed", aircraftType: "", emitterCategory: "", reg: "VT-XYZ", confidence: "confirmed" }, cls);
+  assert.match(none.text, /Size: Size unknown, type not broadcast \(VT-XYZ\)\./);
 });
